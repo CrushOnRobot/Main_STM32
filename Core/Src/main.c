@@ -19,10 +19,14 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "tim.h"
+#include "usart.h"
+#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "string.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,17 +46,27 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t mode = 'a';
+uint8_t rx_data;
+int ccr1 = 0;
+int ccr2 = 799;
+int ccr3 = 1999;
+short isSameMode = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+int __io_putchar(int ch);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int __io_putchar(int ch){
+	while(HAL_UART_Transmit(&huart1, (uint8_t *) &ch, 1, 30000) != HAL_OK){}
+	return ch;
+}
+
 
 /* USER CODE END 0 */
 
@@ -83,14 +97,98 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
+  HAL_UART_Receive_IT(&huart1, (uint8_t*) &rx_data, 1);
 
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3); //servo
+
+  printf("Initial setup finished\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+//	  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+
+//	  TIM4->CCR3 = ccr1;
+	  for(int i = 0; i < 120; i++){
+		  TIM4->CCR3 = 40+i;
+		  HAL_Delay(10);
+	  }
+	  for(int i = 120; i > 0; i--){
+		  TIM4->CCR3 = 40+i;
+		  HAL_Delay(10);
+	  }
+
+
+/*	  if(!isSameMode){
+			isSameMode = 1;
+			if(mode == 'a') //stop
+			{
+				TIM3->CCR1 = ccr1;
+				TIM3->CCR4 = ccr1;
+				TIM2->CCR1 = ccr1;
+				TIM2->CCR4 = ccr1;
+				TIM2->CCR2 = ccr1;
+				TIM2->CCR3 = ccr1;
+			}
+
+			else if(mode == 'b') //clockwise
+			{
+				TIM3->CCR1 = ccr1;
+				TIM3->CCR4 = ccr2;
+				TIM2->CCR1 = ccr1;
+				TIM2->CCR4 = ccr2;
+				TIM2->CCR2 = ccr1;
+				TIM2->CCR3 = ccr2;
+			}
+			else if(mode == 'c') //counter-clockwise
+			{
+				TIM3->CCR1 = ccr2;
+				TIM3->CCR4 = ccr1;
+				TIM2->CCR1 = ccr2;
+				TIM2->CCR4 = ccr1;
+				TIM2->CCR2 = ccr2;
+				TIM2->CCR3 = ccr1;
+			}
+			else if(mode == 'd') //backward
+			{
+				TIM3->CCR1 = ccr1;
+				TIM3->CCR4 = ccr1;
+				TIM2->CCR1 = ccr1;
+				TIM2->CCR4 = ccr2;
+				TIM2->CCR2 = ccr2;
+				TIM2->CCR3 = ccr1;
+			}
+			else if(mode == 'e') //forward
+			{
+				TIM3->CCR1 = ccr1;
+				TIM3->CCR4 = ccr1;
+				TIM2->CCR1 = ccr2;
+				TIM2->CCR4 = ccr1;
+				TIM2->CCR2 = ccr1;
+				TIM2->CCR3 = ccr2;
+			}
+			else
+			{
+				mode = 'a';
+			}
+*/
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -147,7 +245,15 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	if(huart -> Instance == USART1){
+		HAL_UART_Receive_IT(&huart1, (uint8_t*) &rx_data, 1);
+		isSameMode = 0;
+		mode = rx_data;
+		printf("====mode changed====\n");
+		printf("mode = %c\n", mode);
+	}
+}
 /* USER CODE END 4 */
 
 /**
