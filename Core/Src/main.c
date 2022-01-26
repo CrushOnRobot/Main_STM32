@@ -47,11 +47,15 @@
 
 /* USER CODE BEGIN PV */
 uint8_t mode = 'a';
-uint8_t rx_data;
+uint8_t rpi = 'a';
+uint8_t rpiBuf[2] = {'a', 'a'};
+uint8_t rx_debug;
+uint8_t rx_camera;
 int ccr1 = 0;
 int ccr2 = 799;
 int ccr3 = 1999;
 short isSameMode = 0;
+short isSameRpi = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -102,8 +106,10 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart1, (uint8_t*) &rx_data, 1);
+  HAL_UART_Receive_IT(&huart1, (uint8_t*) &rx_debug, 1);
+  HAL_UART_Receive_IT(&huart3, (uint8_t*) &rx_camera, 1);
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
@@ -120,20 +126,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-
-//	  TIM4->CCR3 = ccr1;
-	  for(int i = 0; i < 120; i++){
-		  TIM4->CCR3 = 40+i;
-		  HAL_Delay(10);
-	  }
-	  for(int i = 120; i > 0; i--){
-		  TIM4->CCR3 = 40+i;
-		  HAL_Delay(10);
-	  }
-
-
-/*	  if(!isSameMode){
+	  if(!isSameMode){
 			isSameMode = 1;
 			if(mode == 'a') //stop
 			{
@@ -181,11 +174,89 @@ int main(void)
 				TIM2->CCR2 = ccr1;
 				TIM2->CCR3 = ccr2;
 			}
+			else if(mode == 'x') //neck up
+			{
+				for(int i = 0; i < 120; i++){
+					  TIM4->CCR3 = i;
+					  HAL_Delay(10);
+				}
+			}
+			else if(mode == 'y') //neck down
+			{
+				for(int i = 120; i > 0; i--){
+					  TIM4->CCR3 = i;
+					  HAL_Delay(10);
+				}
+			}
 			else
 			{
 				mode = 'a';
+				isSameMode = 0;
 			}
-*/
+
+			printf("mode = %c\n", mode);
+	  }
+
+	  if(!isSameRpi)
+	  {
+		  isSameRpi = 1;
+		  if(rpi == 'h')
+		  {
+			  printf("!!HELP!!\n");
+		  }
+
+		  if(rpi == 'r')
+		  {
+			  printf("Turn Right\n");
+		  }
+		  else if(rpi == 'l')
+		  {
+			  printf("Turn Left\n");
+		  }
+		  else if(rpi == 'f')
+		  {
+			  printf("Stay Front\n");
+		  }
+
+		  if(rpi == 'u')
+		  {
+			  if(TIM4->CCR3 > 115) // unsigned int 이므로 음수 -> 큰 양수가 됨
+			  {
+				  TIM4->CCR3 = 120;
+			  }
+			  else
+			  {
+				  printf("Neck Up");
+				  for(int i = 0; i < 5; i++)
+				  {
+					  TIM4->CCR3 += 1;
+					  HAL_Delay(40);
+				  }
+			  }
+
+		  }
+		  else if(rpi == 'd')
+		  {
+			  if(TIM4->CCR3 < 5)
+			  {
+				  TIM4->CCR3 = 0;
+			  }
+			  else
+			  {
+				  printf("Neck Down");
+				  for(int i = 0; i < 5; i++)
+				  {
+					  TIM4->CCR3 -= 1;
+					  HAL_Delay(40);
+				  }
+			  }
+		  }
+		  else if(rpi == 's'){
+			  printf("Neck Stop");
+		  }
+	  }
+
+
 
 
 
@@ -247,11 +318,20 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 	if(huart -> Instance == USART1){
-		HAL_UART_Receive_IT(&huart1, (uint8_t*) &rx_data, 1);
 		isSameMode = 0;
-		mode = rx_data;
+		mode = rx_debug;
 		printf("====mode changed====\n");
-		printf("mode = %c\n", mode);
+		HAL_UART_Receive_IT(&huart1, (uint8_t*) &rx_debug, 1);
+	}
+	else if(huart -> Instance == USART3){
+		rpiBuf[0] = rpiBuf[1];
+		rpiBuf[1] = rx_camera;
+		if(rpiBuf[0] != rpiBuf[1])
+		{
+			isSameRpi = 0;
+		}
+		rpi = rx_camera;
+		HAL_UART_Receive_IT(&huart3, (uint8_t*) &rx_camera, 1);
 	}
 }
 /* USER CODE END 4 */
